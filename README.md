@@ -26,6 +26,10 @@ Del anterior diagrama de componentes (de alto nivel), se desprendió el siguient
 
 2. Modifique el bean de persistecia 'InMemoryBlueprintPersistence' para que por defecto se inicialice con al menos otros tres planos, y con dos asociados a un mismo autor.
 
+Se modifico el bean de persistencia InMemoryBlueprintPersistence, con el fin de que inicialice otros tres planos aparte del que ya se estaba inicializando.
+
+![img1.png](images/img1.png)
+
 3. Configure su aplicación para que ofrezca el recurso "/blueprints", de manera que cuando se le haga una petición GET, retorne -en formato jSON- el conjunto de todos los planos. Para esto:
 
     * Modifique la clase BlueprintAPIController teniendo en cuenta el siguiente ejemplo de controlador REST hecho con SpringMVC/SpringBoot:
@@ -50,6 +54,10 @@ Del anterior diagrama de componentes (de alto nivel), se desprendió el siguient
    ```
     * Haga que en esta misma clase se inyecte el bean de tipo BlueprintServices (al cual, a su vez, se le inyectarán sus dependencias de persisntecia y de filtrado de puntos).
 
+Se creo la clase BlueprintsController con el fin de ofrecer varios metodos HTTP, el primero de ellos fue el GET, el cual retorna el conjunto de todos los planos.
+
+![img2.png](images/img2.png)
+
 4. Verifique el funcionamiento de a aplicación lanzando la aplicación con maven:
 
    ```bash
@@ -59,8 +67,17 @@ Del anterior diagrama de componentes (de alto nivel), se desprendió el siguient
    ```
    Y luego enviando una petición GET a: http://localhost:8080/blueprints. Rectifique que, como respuesta, se obtenga un objeto jSON con una lista que contenga el detalle de los planos suministados por defecto, y que se haya aplicado el filtrado de puntos correspondiente.
 
+Utilizando Postman se verifico el funcionamiento del método GET.
+![img3.png](images/img3.png)
 
 5. Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}, el cual retorne usando una representación jSON todos los planos realizados por el autor cuyo nombre sea {author}. Si no existe dicho autor, se debe responder con el código de error HTTP 404. Para esto, revise en [la documentación de Spring](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/mvc.html), sección 22.3.2, el uso de @PathVariable. De nuevo, verifique que al hacer una petición GET -por ejemplo- a recurso http://localhost:8080/blueprints/juan, se obtenga en formato jSON el conjunto de planos asociados al autor 'juan' (ajuste esto a los nombres de autor usados en el punto 2).
+
+Ahora al controlador se le agrego un método GET para que se introduzca dentro de la URL el nombre de un autor, con el fin de que retorne todos los planos realizados por este.
+Si no existe el autor, se responde con un HTTP 404
+
+![img4.png](images/img4.png)
+![img5.png](images/img5.png)
+![img6.png](images/img6.png)
 
 6. Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}/{bpname}, el cual retorne usando una representación jSON sólo UN plano, en este caso el realizado por {author} y cuyo nombre sea {bpname}. De nuevo, si no existe dicho autor, se debe responder con el código de error HTTP 404.
 
@@ -83,7 +100,8 @@ Del anterior diagrama de componentes (de alto nivel), se desprendió el siguient
      
     }
     ```	
-
+Se agrego en el controlador el método POST con el fin de que se puedan crear nuevos planos, para esto se debe enviar en formato JSON toda la información del nuevo plano, la cual requiere del nombre del autor, el nombre del plano y las respectivas coordenadas.
+![img7.png](images/img7.png)
 
 2.  Para probar que el recurso ‘planos’ acepta e interpreta
     correctamente las peticiones POST, use el comando curl de Unix. Este
@@ -101,6 +119,10 @@ Del anterior diagrama de componentes (de alto nivel), se desprendió el siguient
 
     Nota: puede basarse en el formato jSON mostrado en el navegador al consultar una orden con el método GET.
 
+Para poder probar que funciona el método POST, se utilizo nuevamente Postman para verificar la creación del nuevo plano.
+
+![img8.png](images/img8.png)
+![img9.png](images/img9.png)
 
 3. Teniendo en cuenta el autor y numbre del plano registrado, verifique que el mismo se pueda obtener mediante una petición GET al recurso '/blueprints/{author}/{bpname}' correspondiente.
 

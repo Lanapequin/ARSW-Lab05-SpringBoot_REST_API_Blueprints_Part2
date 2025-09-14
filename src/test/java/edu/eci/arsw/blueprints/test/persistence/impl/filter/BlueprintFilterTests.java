@@ -6,18 +6,18 @@ import java.util.List;
 import edu.eci.arsw.blueprints.config.AppConfig;
 import edu.eci.arsw.blueprints.filter.BlueprintFilter;
 import edu.eci.arsw.blueprints.model.Point;
-import org.junit.Test;
-import org.junit.Assert;
-
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = AppConfig.class)
-public class BlueprintFilterTests {
+import static org.junit.jupiter.api.Assertions.*;
+@ExtendWith(SpringExtension.class)
+@SpringBootTest(classes = AppConfig.class)
+class BlueprintFilterTests {
+
     @Autowired
     @Qualifier("redundancyFilter")
     BlueprintFilter redundancyFilter;
@@ -27,24 +27,24 @@ public class BlueprintFilterTests {
     BlueprintFilter subsamplingFilter;
 
     @Test
-    public void testRedundancyFilter() {
+    void testRedundancyFilter() {
         List<Point> input = Arrays.asList(
                 new Point(0, 0), new Point(0, 0), new Point(1, 1), new Point(1, 1)
         );
         List<Point> expected = Arrays.asList(
                 new Point(0, 0), new Point(1, 1)
         );
-        Assert.assertEquals(expected, redundancyFilter.filter(input));
+        assertEquals(expected, redundancyFilter.filter(input));
     }
 
     @Test
-    public void testSubsamplingFilter() {
+    void testSubsamplingFilter() {
         List<Point> input = Arrays.asList(
                 new Point(0, 0), new Point(1, 1), new Point(2, 2), new Point(3, 3)
         );
         List<Point> expected = Arrays.asList(
                 new Point(0, 0), new Point(2, 2)
         );
-        Assert.assertEquals(expected, subsamplingFilter.filter(input));
+        assertEquals(expected, subsamplingFilter.filter(input));
     }
 }
