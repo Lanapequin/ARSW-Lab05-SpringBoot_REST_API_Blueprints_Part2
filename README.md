@@ -158,26 +158,48 @@ Se realizó una prueba enviando solo el nuevo nombre y autor en el cuerpo de la 
 
 ![](img/update-fewer-attributes.png)
 
-### Parte III
+## Parte III. Análisis de Concurrencia y Justificación del Mecanismo de Sincronización
 
-El componente BlueprintsRESTAPI funcionará en un entorno concurrente. Es decir, atederá múltiples peticiones simultáneamente (con el stack de aplicaciones usado, dichas peticiones se atenderán por defecto a través múltiples de hilos). Dado lo anterior, debe hacer una revisión de su API (una vez funcione), e identificar:
+En una aplicación concurrente, múltiples hilos pueden acceder y modificar recursos compartidos al mismo tiempo, lo que puede generar condiciones de carrera. Este informe analiza los problemas de concurrencia en la API `BlueprintsRESTAPI` y propone soluciones para garantizar la integridad de los datos.
 
-* Qué condiciones de carrera se podrían presentar?
-* Cuales son las respectivas regiones críticas?
+La colección `HashMap` utilizada para almacenar los `Blueprints` no es segura para el acceso concurrente, lo que puede causar:
 
-Ajuste el código para suprimir las condiciones de carrera. Tengan en cuenta que simplemente sincronizar el acceso a las operaciones de persistencia/consulta DEGRADARÁ SIGNIFICATIVAMENTE el desempeño de API, por lo cual se deben buscar estrategias alternativas.
+- **Pérdida de datos:** Si dos hilos modifican el mapa al mismo tiempo, uno de los cambios puede perderse.
+- **corruptos:** Modificaciones simultáneas pueden alterar la integridad de los datos.
+- **Inconsistencias en las comprobaciones:** Operaciones como `containsKey()` y `put()` no son atómicas.
 
-Escriba su análisis y la solución aplicada en el archivo ANALISIS_CONCURRENCIA.txt
+```JAVA
+private final Map<Tuple<String,String>,Blueprint> blueprints = new HashMap<>();
+```
 
-#### Criterios de evaluación
+Aunque `ConcurrentHashMap` es una alternativa válida para garantizar la sincronización en operaciones concurrentes como `put()` y `get()`, en este caso se optó por utilizar un mecanismo de bloqueo explícito mediante `ReadWriteLock`. Esto se debe a que, si bien `ConcurrentHashMap` ofrece robustez en operaciones atómicas, no permite controlar adecuadamente el flujo de excepciones en escenarios más complejos, como la validación de existencia de autores o la actualización condicional de `Blueprints`.
 
-1. Diseño.
-    * Al controlador REST implementado se le inyectan los servicios implementados en el laboratorio anterior.
-    * Todos los recursos asociados a '/blueprint' están en un mismo Bean.
-    * Los métodos que atienden las peticiones a recursos REST retornan un código HTTP 202 si se procesaron adecuadamente, y el respectivo código de error HTTP si el recurso solicitado NO existe, o si se generó una excepción en el proceso (dicha excepción NO DEBE SER de tipo 'Exception', sino una concreta)
-2. Funcionalidad.
-    * El API REST ofrece los recursos, y soporta sus respectivos verbos, de acuerdo con lo indicado en el enunciado.
-3. Análisis de concurrencia.
-    * En el código, y en las respuestas del archivo de texto, se tuvo en cuenta:
-        * La colección usada en InMemoryBlueprintPersistence no es Thread-safe (se debió cambiar a una con esta condición).
-        * El método que agrega un nuevo plano está sujeta a una condición de carrera, pues la consulta y posterior agregación (condicionada a la anterior) no se realizan de forma atómica. Si como solución usa un bloque sincronizado, se evalúa como R. Si como solución se usaron los métodos de agregación condicional atómicos (por ejemplo putIfAbsent()) de la colección 'Thread-Safe' usada, se evalúa como B.
+Por ejemplo, métodos como `getBlueprintsByAuthor()` requieren recorrer el conjunto completo de claves para verificar si un autor existe, y lanzar una excepción personalizada si no es así. Este tipo de lógica no puede implementarse de forma segura ni precisa usando `ConcurrentHashMap`, ya que se perdería el control sobre cuándo y cómo lanzar dichas excepciones.
+
+En cambio, el uso de `ReadWriteLock` permite:
+
+- **Lecturas concurrentes seguras**, sin bloquear múltiples hilos que acceden a datos.
+- **Escrituras exclusivas**, evitando condiciones de carrera en operaciones críticas como `saveBlueprint()` y `updateBlueprint()`.
+- **Control total sobre la lógica de negocio y manejo de errores**, manteniendo la integridad semántica de la API.
+
+Esta decisión asegura una implementación **thread-safe**, flexible y alineada con los requisitos funcionales del sistema, sin sacrificar la claridad en el manejo de errores ni la consistencia de los datos.
+
+### Condiciones de Carrera Identificadas
+
+1. **Método** `saveBlueprint()`: Realiza una verificación con `containsKey()` seguida de una inserción con `put()`. Esta secuencia no es atómica y puede provocar una condición de carrera si múltiples hilos intentan guardar el mismo `Blueprint` simultáneamente.
+2. **Método** `updateBlueprint()`: Ejecuta una operación de lectura-modificación-escritura sobre el mapa, lo que puede generar inconsistencias si varios hilos actualizan el mismo `Blueprint` al mismo tiempo.
+3. **Método** `deleteBlueprint()`: Verifica la existencia de una clave con `containsKey()` antes de eliminarla con `remove()`. Si dos hilos intentan eliminar el mismo `Blueprint`, puede producirse una condición de carrera.
+4. **Método** `getBlueprintsByAuthor()`: Recorre el conjunto de claves para buscar coincidencias por autor. Si otro hilo modifica el mapa durante esta operación, puede haber inconsistencias en los resultados o errores inesperados.
+5. **Método** `getAllBlueprints()`: Accede directamente a los valores del mapa. Si otro hilo modifica el contenido mientras se realiza esta operación, puede haber lecturas inconsistentes.
+
+Como resultado del análisis de las condiciones de carrera descritas anteriormente, se procedió a modificar la implementación de los métodos afectados, incorporando bloqueos explícitos mediante `ReadWriteLock`. Esta modificación se realizó inmediatamente después de identificar los puntos críticos de concurrencia, con el objetivo de garantizar que cada acceso al mapa `blueprints` estuviera debidamente sincronizado.
+
+![](img/thread-safe-1.png)
+
+![](img/thread-safe-2.png)
+
+![](img/thread-safe-3.png)
+
+Tras aplicar los cambios, se ejecutaron nuevamente las pruebas funcionales y de concurrencia sobre la API `BlueprintsRESTAPI`. Los resultados confirmaron que todas las operaciones continuaron funcionando correctamente, sin pérdida de datos ni errores inesperados, y que el sistema ahora garantiza un comportamiento thread-safe incluso bajo escenarios de acceso simultáneo por múltiples hilos.
+
+![](img/final-test.png)
