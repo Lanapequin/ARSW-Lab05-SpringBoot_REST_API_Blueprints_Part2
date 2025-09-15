@@ -5,6 +5,7 @@
  */
 package edu.eci.arsw.blueprints.persistence.impl;
 
+import edu.eci.arsw.blueprints.dto.BlueprintDTO;
 import edu.eci.arsw.blueprints.model.Blueprint;
 import edu.eci.arsw.blueprints.model.Point;
 import edu.eci.arsw.blueprints.persistence.BlueprintNotFoundException;
@@ -12,10 +13,7 @@ import edu.eci.arsw.blueprints.persistence.BlueprintPersistenceException;
 import edu.eci.arsw.blueprints.persistence.BlueprintsPersistence;
 import org.springframework.stereotype.Repository;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  *
@@ -109,5 +107,47 @@ public class InMemoryBlueprintPersistence implements BlueprintsPersistence{
             throw new BlueprintNotFoundException("Blueprint not found for author: " + author + ", name: " + name);
         }
         blueprints.remove(key);
+    }
+
+    @Override
+    public Blueprint updateBlueprint(String author, String bprintname, BlueprintDTO bp) throws BlueprintNotFoundException, BlueprintPersistenceException {
+        Tuple<String, String> oldKey = new Tuple<>(author, bprintname);
+        boolean authorExists = blueprints.keySet().stream()
+                .anyMatch(key -> key.getElem1().equals(author));
+
+        if (!authorExists) {
+            throw new BlueprintNotFoundException("Author '" + author + "' does not exist.");
+        }
+
+        Blueprint blueprint = blueprints.get(oldKey);
+
+        if (blueprint == null) {
+            throw new BlueprintNotFoundException(
+                    String.format("Blueprint '%s' by author '%s' was not found.", bprintname, author)
+            );
+        }
+
+        String newAuthor = bp.getAuthor() != null ? bp.getAuthor() : blueprint.getAuthor();
+        String newName = bp.getName() != null ? bp.getName() : blueprint.getName();
+        List<Point> newPoints = bp.getPoints() != null ? bp.getPoints() : blueprint.getPoints();
+        Tuple<String, String> newKey = new Tuple<>(newAuthor, newName);
+
+        if (!newKey.equals(oldKey) && blueprints.containsKey(newKey)) {
+            throw new BlueprintPersistenceException(
+                    String.format("Cannot update: a blueprint with author='%s' and name='%s' already exists.",
+                            newAuthor, newName)
+            );
+        }
+
+        blueprint.setAuthor(newAuthor);
+        blueprint.setName(newName);
+        blueprint.setPoints(newPoints);
+
+        if (!newKey.equals(oldKey)) {
+            blueprints.remove(oldKey);
+        }
+
+        blueprints.put(newKey, blueprint);
+        return blueprint;
     }
 }

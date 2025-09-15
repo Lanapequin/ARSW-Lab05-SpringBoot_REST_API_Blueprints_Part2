@@ -1,7 +1,9 @@
 package edu.eci.arsw.blueprints.controller;
 
+import edu.eci.arsw.blueprints.dto.BlueprintDTO;
 import edu.eci.arsw.blueprints.model.Blueprint;
 import edu.eci.arsw.blueprints.persistence.BlueprintNotFoundException;
+import edu.eci.arsw.blueprints.persistence.BlueprintPersistenceException;
 import edu.eci.arsw.blueprints.services.BlueprintsServices;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -80,5 +82,41 @@ public class BlueprintsController {
         }
     }
 
-
+    @PutMapping("/{author}/{bpname}")
+    public ResponseEntity<ControllerResponse<Blueprint>> putBlueprintByAuthorAndName(
+            @PathVariable("author") String author,
+            @PathVariable("bpname") String blueprintName,
+            @RequestBody BlueprintDTO bp) {
+        try {
+            Blueprint blueprint = blueprintsServices.updateBlueprint(author, blueprintName, bp);
+            ControllerResponse<Blueprint> response = new ControllerResponse<>(
+                    blueprint,
+                    "Blueprint updated successfully",
+                    HttpStatus.OK.value()
+            );
+            return ResponseEntity.ok(response);
+        } catch (BlueprintNotFoundException e) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to retrieve blueprint: author='%s', name='%s'. Reason: %s",
+                    author, blueprintName, e.getMessage()
+            ));
+            ControllerResponse<Blueprint> response = new ControllerResponse<>(
+                    null,
+                    e.getMessage(),
+                    HttpStatus.NOT_FOUND.value()
+            );
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (BlueprintPersistenceException e) {
+            logger.log(Level.WARNING, String.format(
+                    "Failed to update blueprint: author='%s', name='%s'. Reason: %s",
+                    author, blueprintName, e.getMessage()
+            ));
+            ControllerResponse<Blueprint> response = new ControllerResponse<>(
+                    null,
+                    e.getMessage(),
+                    HttpStatus.CONFLICT.value()
+            );
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        }
+    }
 }

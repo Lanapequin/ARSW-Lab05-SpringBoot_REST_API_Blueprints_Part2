@@ -70,51 +70,93 @@ Para validar el funcionamiento, se realizaron tres pruebas de aceptación:
 
     ![](img/get-blueprint-nonexistent-author.png)
 
-### Parte II
+## Parte II. Creación, Consulta y Actualización de Planos vía API REST
 
-1.  Agregue el manejo de peticiones POST (creación de nuevos planos), de manera que un cliente http pueda registrar una nueva orden haciendo una petición POST al recurso ‘planos’, y enviando como contenido de la petición todo el detalle de dicho recurso a través de un documento jSON. Para esto, tenga en cuenta el siguiente ejemplo, que considera -por consistencia con el protocolo HTTP- el manejo de códigos de estados HTTP (en caso de éxito o error):
 
-    ```	java
-    @RequestMapping(method = RequestMethod.POST)	
-    public ResponseEntity<?> manejadorPostRecursoXX(@RequestBody TipoXX o){
-        try {
-            //registrar dato
-            return new ResponseEntity<>(HttpStatus.CREATED);
-        } catch (XXException ex) {
-            Logger.getLogger(XXController.class.getName()).log(Level.SEVERE, null, ex);
-            return new ResponseEntity<>("Error bla bla bla",HttpStatus.FORBIDDEN);            
-        }        
-     
-    }
-    ```	
-Se agrego en el controlador el método POST con el fin de que se puedan crear nuevos planos, para esto se debe enviar en formato JSON toda la información del nuevo plano, la cual requiere del nombre del autor, el nombre del plano y las respectivas coordenadas.
+Se implementó un nuevo método HTTP POST en el controlador `BlueprintsController`, con el propósito de permitir la creación de nuevos planos mediante el consumo de un recurso REST. Este nuevo endpoint expone el recurso `/blueprints` y permite a los clientes registrar un plano enviando un objeto JSON con los campos requeridos: el nombre del autor, el nombre del plano y la lista de coordenadas que lo componen.
+
 ![](img/img7.png)
 
-2.  Para probar que el recurso ‘planos’ acepta e interpreta
-    correctamente las peticiones POST, use el comando curl de Unix. Este
-    comando tiene como parámetro el tipo de contenido manejado (en este
-    caso jSON), y el ‘cuerpo del mensaje’ que irá con la petición, lo
-    cual en este caso debe ser un documento jSON equivalente a la clase
-    Cliente (donde en lugar de {ObjetoJSON}, se usará un objeto jSON correspondiente a una nueva orden:
+Para verificar que el recurso `/blueprints` acepta e interpreta correctamente las peticiones POST, se utilizó Postman como herramienta de prueba. A través de esta, se enviaron objetos JSON representando nuevos planos, los cuales incluían el nombre del autor, el nombre del plano y la lista de coordenadas que lo definen.
 
-    ```	
-    $ curl -i -X POST -HContent-Type:application/json -HAccept:application/json http://URL_del_recurso_ordenes -d '{ObjetoJSON}'
-    ```	
+![](img/img8.png)
 
-    Con lo anterior, registre un nuevo plano (para 'diseñar' un objeto jSON, puede usar [esta herramienta](http://www.jsoneditoronline.org/)):
-    
+![](img/img9.png)
 
-    Nota: puede basarse en el formato jSON mostrado en el navegador al consultar una orden con el método GET.
+La lógica implementada en el método POST del controlador fue diseñada para manejar adecuadamente los códigos de estado HTTP, retornando un **201 Created** cuando el plano se registra exitosamente, y un **403 Forbidden** en caso de errores controlados, como intentos de insertar un plano ya existente. Esta gestión de respuestas garantiza un comportamiento coherente con las buenas prácticas del protocolo HTTP y facilita la integración con clientes HTTP como Postman.
 
-Para poder probar que funciona el método POST, se utilizo nuevamente Postman para verificar la creación del nuevo plano.
+Posteriormente, se verificó que el plano registrado mediante una petición POST pudiera ser consultado correctamente mediante el recurso GET `/blueprints/{author}/{bpname}`.
 
-![img8.png](img/img8.png)
-![img9.png](img/img9.png)
+Para ello, utilizando nuevamente Postman, se realizó una solicitud GET con los parámetros del autor y el nombre del plano previamente registrados. La respuesta fue exitosa, retornando el objeto JSON correspondiente al plano solicitado, lo cual confirma que el recurso fue almacenado y es accesible a través del endpoint diseñado.
 
-3. Teniendo en cuenta el autor y numbre del plano registrado, verifique que el mismo se pueda obtener mediante una petición GET al recurso '/blueprints/{author}/{bpname}' correspondiente.
+![](img/get-diana-blueprint.png)
 
 4. Agregue soporte al verbo PUT para los recursos de la forma '/blueprints/{author}/{bpname}', de manera que sea posible actualizar un plano determinado.
 
+Se implementó soporte para el verbo PUT sobre el recurso `/blueprints/{author}/{bpname}`, permitiendo así la actualización de planos existentes a través del controlador `BlueprintsController`.
+
+![](img/put-endpoint.png)
+
+En la capa de servicios, se añadió un nuevo método dentro de `BlueprintService` que encapsula la lógica de negocio necesaria para validar y procesar la actualización del plano.
+
+![](img/update-service.png)
+
+En la capa de persistencia simulada (`InMemoryBlueprintPersistence`), se implementó la verificación para comprobar que:
+
+- El autor del plano existe.
+- El plano con el nombre especificado existe para dicho autor.
+- La tupla `(author, bpname)` corresponde a un plano válido que puede ser actualizado.
+
+![](img/memory-persistance-update.png)
+
+Se realizaron múltiples pruebas utilizando Postman para validar el comportamiento del endpoint `PUT`.
+
+Se actualizó el plano `Parque` del autor `Alice` utilizando el siguiente JSON como cuerpo de la petición:
+
+```JSON
+{
+    "author": "Carlos",
+    "points": [
+        {
+            "x": 45,
+            "y": 60
+        },
+        {
+            "x": 90,
+            "y": 30
+        },
+        {
+            "x": 150,
+            "y": 75
+        }
+    ],
+    "name": "BosqueSur"
+}
+```
+
+![](img/update-resource.png)
+
+Posteriormente, se verificó mediante una petición GET a `/blueprints/Carlos/BosqueSur` que el plano fue actualizado correctamente:
+
+![](img/retrieve-successfully.png)
+
+El sistema valida que no se permita la creación de duplicados al actualizar. Si el autor destino ya tiene un plano con el mismo nombre, la solicitud es rechazada.
+
+![](img/update-conflict.png)
+
+Si el autor original del plano no existe, se retorna un error controlado.
+
+![](img/put-nonexistent-author.png)
+
+Si no existe el plano con el nombre especificado para el autor dado, no se realiza la actualización.
+
+![](img/put-nonexistent-blueprint.png)
+
+El uso del patrón **DTO (Data Transfer Object)** permite mayor flexibilidad en las actualizaciones. Es posible, por ejemplo, modificar únicamente ciertos atributos como el nombre o el autor, sin necesidad de enviar la lista completa de puntos.
+
+Se realizó una prueba enviando solo el nuevo nombre y autor en el cuerpo de la petición. El sistema aplicó correctamente los cambios, ignorando los campos no enviados:
+
+![](img/update-fewer-attributes.png)
 
 ### Parte III
 
