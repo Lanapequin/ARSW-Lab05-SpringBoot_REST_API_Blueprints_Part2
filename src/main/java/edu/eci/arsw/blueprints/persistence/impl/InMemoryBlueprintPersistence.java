@@ -61,7 +61,23 @@ public class InMemoryBlueprintPersistence implements BlueprintsPersistence{
 
     @Override
     public Blueprint getBlueprint(String author, String bprintname) throws BlueprintNotFoundException {
-        return blueprints.get(new Tuple<>(author, bprintname));
+        boolean authorExists = blueprints.keySet().stream()
+                .anyMatch(key -> key.getElem1().equals(author));
+
+        if (!authorExists) {
+            throw new BlueprintNotFoundException("Author '" + author + "' does not exist.");
+        }
+
+        Tuple<String, String> key = new Tuple<>(author, bprintname);
+        Blueprint blueprint = blueprints.get(key);
+
+        if (blueprint == null) {
+            throw new BlueprintNotFoundException(
+                    String.format("Blueprint '%s' by author '%s' was not found.", bprintname, author)
+            );
+        }
+
+        return blueprint;
     }
 
     @Override

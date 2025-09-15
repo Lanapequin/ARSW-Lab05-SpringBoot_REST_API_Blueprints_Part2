@@ -1,87 +1,74 @@
-### Escuela Colombiana de Ingeniería
+# Blueprints REST API: Implementación con Spring Boot
 
-### Arquitecturas de Software
+## Integrantes
+- Laura Natalia Perilla Quintero - [Lanapequin](https://github.com/Lanapequin)
+- Santiago Botero Garcia - [LePeanutButter](https://github.com/LePeanutButter)
 
+## Parte I. Configuración Inicial y Endpoints Básicos (GET)
 
+Se desarrolló Blueprints REST API, una API REST para gestionar planos arquitectónicos de una empresa de diseño. La solución busca ser centralizada, multiplataforma y de bajo acoplamiento entre controlador, servicios y persistencia.
 
-#### API REST para la gestión de planos.
+La implementación se realizó con Spring Boot, usando inyección de dependencias y SpringMVC para exponer los servicios REST.
 
-En este ejercicio se va a construír el componente BlueprintsRESTAPI, el cual permita gestionar los planos arquitectónicos de una prestigiosa compañia de diseño. La idea de este API es ofrecer un medio estandarizado e 'independiente de la plataforma' para que las herramientas que se desarrollen a futuro para la compañía puedan gestionar los planos de forma centralizada.
-El siguiente, es el diagrama de componentes que corresponde a las decisiones arquitectónicas planteadas al inicio del proyecto:
+Este componente ya había sido implementado en el laboratorio anterior, pero no contaba con todos los controladores necesarios. Por ello, se modificó el bean de persistencia `InMemoryBlueprintPersistence` para que inicialice tres planos adicionales, además del que ya se encontraba preconfigurado.
 
-![](img/CompDiag.png)
+![](img/img1.png)
 
-Donde se definió que:
+Se implementó la clase `BlueprintsController` con el objetivo de exponer varios métodos HTTP. El primero en ser desarrollado fue el método `GET`, encargado de retornar, en formato `JSON`, el conjunto completo de planos disponibles en el sistema. Además, en esta clase se inyectó el bean de tipo `BlueprintServices`, permitiendo así el acceso a la lógica de negocio y a la capa de persistencia.
 
-* El componente BlueprintsRESTAPI debe resolver los servicios de su interfaz a través de un componente de servicios, el cual -a su vez- estará asociado con un componente que provea el esquema de persistencia. Es decir, se quiere un bajo acoplamiento entre el API, la implementación de los servicios, y el esquema de persistencia usado por los mismos.
+![](img/img2.png)
 
-Del anterior diagrama de componentes (de alto nivel), se desprendió el siguiente diseño detallado, cuando se decidió que el API estará implementado usando el esquema de inyección de dependencias de Spring (el cual requiere aplicar el principio de Inversión de Dependencias), la extensión SpringMVC para definir los servicios REST, y SpringBoot para la configurar la aplicación:
+La aplicación fue ejecutada desde el entorno de desarrollo `IntelliJ IDEA`, lo que permitió iniciar el proyecto directamente con soporte de `Spring Boot`. Para probar el funcionamiento del método `GET` del recurso `/blueprints`, se utilizó `Postman` como herramienta cliente. A través de esta, se envió una petición GET a http://localhost:8080/blueprints, obteniendo como respuesta un objeto JSON con los planos precargados y con el filtrado de puntos aplicado correctamente.
 
+![](img/img3.png)
 
-![](img/ClassDiagram.png)
+Se amplió el controlador para incluir un nuevo método GET que permite filtrar los planos según el nombre del autor, recibido como variable en la URL mediante la anotación `@PathVariable`. Este método devuelve una representación JSON con todos los planos correspondientes al autor especificado. En caso de que no exista ningún plano asociado a dicho autor, el controlador responde con un código de estado HTTP 404, indicando que el recurso solicitado no fue encontrado. Esta implementación garantiza un manejo robusto de las solicitudes y una adecuada respuesta ante casos de datos inexistentes.
 
-### Parte I
+![](img/img4.png)
 
-1. Integre al proyecto base suministrado los Beans desarrollados en el ejercicio anterior. Sólo copie las clases, NO los archivos de configuración. Rectifique que se tenga correctamente configurado el esquema de inyección de dependencias con las anotaciones @Service y @Autowired.
+![](img/img5.png)
 
-2. Modifique el bean de persistecia 'InMemoryBlueprintPersistence' para que por defecto se inicialice con al menos otros tres planos, y con dos asociados a un mismo autor.
+![](img/img6.png)
 
-Se modifico el bean de persistencia InMemoryBlueprintPersistence, con el fin de que inicialice otros tres planos aparte del que ya se estaba inicializando.
+Se implementó un nuevo método GET en el controlador para atender peticiones al recurso `/blueprints/{author}/{bpname}`, el cual permite obtener un único plano específico, identificado por el nombre del autor y el nombre del plano. La ruta utiliza la anotación `@PathVariable` para capturar los parámetros directamente desde la URL y retornar una representación JSON del plano correspondiente.
 
-![img1.png](images/img1.png)
+![](img/get-blueprint-controller.png)
 
-3. Configure su aplicación para que ofrezca el recurso "/blueprints", de manera que cuando se le haga una petición GET, retorne -en formato jSON- el conjunto de todos los planos. Para esto:
+Dado que el controlador no retorna directamente wildcards ni estructuras de respuesta genéricas, se implementó la clase `ControllerResponse`, la cual estandariza la salida del API en una estructura consistente que incluye:
 
-    * Modifique la clase BlueprintAPIController teniendo en cuenta el siguiente ejemplo de controlador REST hecho con SpringMVC/SpringBoot:
+- El contenido (`data`),
+- Un mensaje descriptivo (`message`),
+- Y el código de estado (`status`).
 
-   ```java
-   @RestController
-   @RequestMapping(value = "/url-raiz-recurso")
-   public class XXController {
-   
-       
-   @RequestMapping(method = RequestMethod.GET)
-   public ResponseEntity<?> manejadorGetRecursoXX(){
-       try {
-           //obtener datos que se enviarán a través del API
-           return new ResponseEntity<>(data,HttpStatus.ACCEPTED);
-       } catch (XXException ex) {
-           Logger.getLogger(XXController.class.getName()).log(Level.SEVERE, null, ex);
-           return new ResponseEntity<>("Error bla bla bla",HttpStatus.NOT_FOUND);
-       }        
-   }
+![](img/message-response-formater.png)
 
-   ```
-    * Haga que en esta misma clase se inyecte el bean de tipo BlueprintServices (al cual, a su vez, se le inyectarán sus dependencias de persisntecia y de filtrado de puntos).
+Esta clase mejora la legibilidad y trazabilidad de las respuestas, especialmente al realizar pruebas desde herramientas como Postman. Su constructor tiene la siguiente estructura:
 
-Se creo la clase BlueprintsController con el fin de ofrecer varios metodos HTTP, el primero de ellos fue el GET, el cual retorna el conjunto de todos los planos.
+```java
+public ControllerResponse(T data, String message, int status) {
+    this.data = data;
+    this.message = message;
+    this.status = status;
+}
+```
 
-![img2.png](images/img2.png)
+Adicionalmente, se actualizó la clase `InMemoryBlueprintPersistence`, encargada de simular la lógica de persistencia, para validar adecuadamente la existencia del autor y del plano solicitado. Se utilizaron excepciones personalizadas (`BlueprintPersistenceException`) para manejar los casos en los que alguno de los parámetros no se encuentra registrado, garantizando una respuesta con el código de estado HTTP 404 cuando corresponde.
 
-4. Verifique el funcionamiento de a aplicación lanzando la aplicación con maven:
+![](img/get-blueprint-persistance.png)
 
-   ```bash
-   $ mvn compile
-   $ mvn spring-boot:run
-   
-   ```
-   Y luego enviando una petición GET a: http://localhost:8080/blueprints. Rectifique que, como respuesta, se obtenga un objeto jSON con una lista que contenga el detalle de los planos suministados por defecto, y que se haya aplicado el filtrado de puntos correspondiente.
+Para validar el funcionamiento, se realizaron tres pruebas de aceptación:
 
-Utilizando Postman se verifico el funcionamiento del método GET.
-![img3.png](images/img3.png)
+1. **Caso exitoso:** Se obtiene un plano cuando existen tanto el autor como el nombre del plano.
 
-5. Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}, el cual retorne usando una representación jSON todos los planos realizados por el autor cuyo nombre sea {author}. Si no existe dicho autor, se debe responder con el código de error HTTP 404. Para esto, revise en [la documentación de Spring](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/mvc.html), sección 22.3.2, el uso de @PathVariable. De nuevo, verifique que al hacer una petición GET -por ejemplo- a recurso http://localhost:8080/blueprints/juan, se obtenga en formato jSON el conjunto de planos asociados al autor 'juan' (ajuste esto a los nombres de autor usados en el punto 2).
+    ![](img/get-blueprint-sucessfull.png)
 
-Ahora al controlador se le agrego un método GET para que se introduzca dentro de la URL el nombre de un autor, con el fin de que retorne todos los planos realizados por este.
-Si no existe el autor, se responde con un HTTP 404
+2. **Plano inexistente:** Se retorna HTTP 404 cuando el autor existe, pero el nombre del plano no está registrado.
 
-![img4.png](images/img4.png)
-![img5.png](images/img5.png)
-![img6.png](images/img6.png)
+    ![](img/get-blueprint-nonexistent-blueprint.png)
 
-6. Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}/{bpname}, el cual retorne usando una representación jSON sólo UN plano, en este caso el realizado por {author} y cuyo nombre sea {bpname}. De nuevo, si no existe dicho autor, se debe responder con el código de error HTTP 404.
+3. **Autor inexistente:** Se retorna HTTP 404 cuando el autor no está registrado en el sistema.
 
-
+    ![](img/get-blueprint-nonexistent-author.png)
 
 ### Parte II
 
@@ -101,7 +88,7 @@ Si no existe el autor, se responde con un HTTP 404
     }
     ```	
 Se agrego en el controlador el método POST con el fin de que se puedan crear nuevos planos, para esto se debe enviar en formato JSON toda la información del nuevo plano, la cual requiere del nombre del autor, el nombre del plano y las respectivas coordenadas.
-![img7.png](images/img7.png)
+![](img/img7.png)
 
 2.  Para probar que el recurso ‘planos’ acepta e interpreta
     correctamente las peticiones POST, use el comando curl de Unix. Este
@@ -121,8 +108,8 @@ Se agrego en el controlador el método POST con el fin de que se puedan crear nu
 
 Para poder probar que funciona el método POST, se utilizo nuevamente Postman para verificar la creación del nuevo plano.
 
-![img8.png](images/img8.png)
-![img9.png](images/img9.png)
+![img8.png](img/img8.png)
+![img9.png](img/img9.png)
 
 3. Teniendo en cuenta el autor y numbre del plano registrado, verifique que el mismo se pueda obtener mediante una petición GET al recurso '/blueprints/{author}/{bpname}' correspondiente.
 
