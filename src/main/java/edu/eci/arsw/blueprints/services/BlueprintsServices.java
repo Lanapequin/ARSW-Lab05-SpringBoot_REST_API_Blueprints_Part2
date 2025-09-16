@@ -5,6 +5,7 @@
  */
 package edu.eci.arsw.blueprints.services;
 
+import edu.eci.arsw.blueprints.dto.BlueprintDTO;
 import edu.eci.arsw.blueprints.filter.BlueprintFilter;
 import edu.eci.arsw.blueprints.model.Blueprint;
 import edu.eci.arsw.blueprints.model.Point;
@@ -91,6 +92,10 @@ public class BlueprintsServices {
 
     public void deleteBlueprint(String author, String name) throws BlueprintNotFoundException {
         bpp.deleteBlueprint(author, name);
+    }
+
+    public Blueprint updateBlueprint(String author, String name, BlueprintDTO bp) throws BlueprintNotFoundException, BlueprintPersistenceException {
+        return bpp.updateBlueprint(author, name, bp);
     }
 
 }
